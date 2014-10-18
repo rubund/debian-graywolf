@@ -3,7 +3,7 @@ Section: electronics
 Priority: optional
 Maintainer: Debian Science Maintainers <debian-science-maintainers@lists.alioth.debian.org>
 Uploaders: Ruben Undheim <ruben.undheim@gmail.com>
-Build-Depends: debhelper (>= 9)
+Build-Depends: debhelper (>= 9), cmake, libx11-dev
 Standards-Version: 3.9.6
 Vcs-Git: git://anonscm.debian.org/debian-science/packages/graywolf.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=debian-science/packages/graywolf.git
