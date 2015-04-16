@@ -1,5 +1,5 @@
-graywolf (0.0.1-1) UNRELEASED; urgency=low
+graywolf (0.0.2-1) trusty; urgency=low
 
   * Initial release (Closes: #xxxx)
 
- -- Ruben Undheim <ruben.undheim@gmail.com>  Tue, 14 Oct 2014 19:05:22 +0200
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Thu, 16 Apr 2015 18:58:07 +0200
