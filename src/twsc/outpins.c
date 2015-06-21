@@ -1,3 +1,43 @@
+/*
+ *   Copyright (C) 1989-1991 Yale University
+ *   Copyright (C) 2015 Tim Edwards <tim@opencircuitdesign.com>
+ *
+ *   This work is distributed in the hope that it will be useful; you can
+ *   redistribute it and/or modify it under the terms of the
+ *   GNU General Public License as published by the Free Software Foundation;
+ *   either version 2 of the License,
+ *   or any later version, on the following conditions:
+ *
+ *   (a) YALE MAKES NO, AND EXPRESSLY DISCLAIMS
+ *   ALL, REPRESENTATIONS OR WARRANTIES THAT THE MANUFACTURE, USE, PRACTICE,
+ *   SALE OR
+ *   OTHER DISPOSAL OF THE SOFTWARE DOES NOT OR WILL NOT INFRINGE UPON ANY
+ *   PATENT OR
+ *   OTHER RIGHTS NOT VESTED IN YALE.
+ *
+ *   (b) YALE MAKES NO, AND EXPRESSLY DISCLAIMS ALL, REPRESENTATIONS AND
+ *   WARRANTIES
+ *   WHATSOEVER WITH RESPECT TO THE SOFTWARE, EITHER EXPRESS OR IMPLIED,
+ *   INCLUDING,
+ *   BUT NOT LIMITED TO, WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A
+ *   PARTICULAR
+ *   PURPOSE.
+ *
+ *   (c) LICENSEE SHALL MAKE NO STATEMENTS, REPRESENTATION OR WARRANTIES
+ *   WHATSOEVER TO
+ *   ANY THIRD PARTIES THAT ARE INCONSISTENT WITH THE DISCLAIMERS BY YALE IN
+ *   ARTICLE
+ *   (a) AND (b) above.
+ *
+ *   (d) IN NO EVENT SHALL YALE, OR ITS TRUSTEES, DIRECTORS, OFFICERS,
+ *   EMPLOYEES AND
+ *   AFFILIATES BE LIABLE FOR DAMAGES OF ANY KIND, INCLUDING ECONOMIC DAMAGE OR
+ *   INJURY TO PROPERTY AND LOST PROFITS, REGARDLESS OF WHETHER YALE SHALL BE
+ *   ADVISED, SHALL HAVE OTHER REASON TO KNOW, OR IN FACT SHALL KNOW OF THE
+ *   POSSIBILITY OF THE FOREGOING.
+ *
+ */
+
 /* ----------------------------------------------------------------- 
 FILE:	    outpins.c                                       
 DESCRIPTION:output the pin (global route) information.
@@ -112,7 +152,8 @@ for( net = 1 ; net <= numnetsG ; net++ ) {
 	ptr->newy = vtxS ;
     }
     numpinS = vtxS ;
-    if( numpinS <= 1 ) {
+    // if( numpinS <= 1 ) {
+    if( numpinS == 0 ) {
 	continue ;
     }
     for( ptr = netarrayG[net]->pins ; ptr ; ptr = ptr->next ) {
@@ -221,6 +262,9 @@ for( net = 1 ; net <= numnetsG ; net++ ) {
 		if( downFlag ) {
 		    do_outpins( ptr , 0 ) ;
 		}
+		if( !upFlag && !downFlag ) {
+		    do_outpins( ptr, -1 ) ;	// Handle singletons
+		}
 		break ;
 	} /* end switch */
     }
@@ -268,15 +312,21 @@ char instance_name[128] , p_name[128] , *tmp_string ;
 tmp_char[1] = EOS ; /* terminate string */
 
 cellptr = carrayG[ ptr->cell ] ;
-if( flag ) {
+if( flag == 1 ) {
     channel = ptr->row + 1 ;
     groupS_number = groupS[ ptr->newy + numpinS ] ;
     pinloc = -1 ;
     y = cellptr->cycenter + cellptr->tileptr->top ;
-} else {
+} else if ( flag == 0 ) {
     channel = ptr->row ;
     groupS_number = groupS[ ptr->newy ] ;
     pinloc = 1 ;
+    y = cellptr->cycenter + cellptr->tileptr->bottom ;
+} else {
+    // Singleton
+    channel = ptr->row ;
+    groupS_number = groupS[ ptr->newy ] ;
+    pinloc = 0 ;
     y = cellptr->cycenter + cellptr->tileptr->bottom ;
 }
 if( (pptr = cellptr->padptr) && pptr->padside ) {

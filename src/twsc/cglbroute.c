@@ -1,3 +1,43 @@
+/*
+ *   Copyright (C) 1989-1990 Yale University
+ *   Copyright (C) 2015 Tim Edwards <tim@opencircuitdesign.com>
+ *
+ *   This work is distributed in the hope that it will be useful; you can
+ *   redistribute it and/or modify it under the terms of the
+ *   GNU General Public License as published by the Free Software Foundation;
+ *   either version 2 of the License,
+ *   or any later version, on the following conditions:
+ *
+ *   (a) YALE MAKES NO, AND EXPRESSLY DISCLAIMS
+ *   ALL, REPRESENTATIONS OR WARRANTIES THAT THE MANUFACTURE, USE, PRACTICE,
+ *   SALE OR
+ *   OTHER DISPOSAL OF THE SOFTWARE DOES NOT OR WILL NOT INFRINGE UPON ANY
+ *   PATENT OR
+ *   OTHER RIGHTS NOT VESTED IN YALE.
+ *
+ *   (b) YALE MAKES NO, AND EXPRESSLY DISCLAIMS ALL, REPRESENTATIONS AND
+ *   WARRANTIES
+ *   WHATSOEVER WITH RESPECT TO THE SOFTWARE, EITHER EXPRESS OR IMPLIED,
+ *   INCLUDING,
+ *   BUT NOT LIMITED TO, WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A
+ *   PARTICULAR
+ *   PURPOSE.
+ *
+ *   (c) LICENSEE SHALL MAKE NO STATEMENTS, REPRESENTATION OR WARRANTIES
+ *   WHATSOEVER TO
+ *   ANY THIRD PARTIES THAT ARE INCONSISTENT WITH THE DISCLAIMERS BY YALE IN
+ *   ARTICLE
+ *   (a) AND (b) above.
+ *
+ *   (d) IN NO EVENT SHALL YALE, OR ITS TRUSTEES, DIRECTORS, OFFICERS,
+ *   EMPLOYEES AND
+ *   AFFILIATES BE LIABLE FOR DAMAGES OF ANY KIND, INCLUDING ECONOMIC DAMAGE OR
+ *   INJURY TO PROPERTY AND LOST PROFITS, REGARDLESS OF WHETHER YALE SHALL BE
+ *   ADVISED, SHALL HAVE OTHER REASON TO KNOW, OR IN FACT SHALL KNOW OF THE
+ *   POSSIBILITY OF THE FOREGOING.
+ *
+ */
+
 /* ----------------------------------------------------------------- 
 FILE:	    cglbroute.c                                       
 DESCRIPTION:coarse global routing routines.
@@ -25,7 +65,8 @@ static char SccsId[] = "@(#) cglbroute.c (Yale) version 4.5 12/15/90" ;
 #include "standard.h"
 #include "main.h"
 #include "groute.h"
-#define OVER_HEAD 100
+#define OVERHEAD_INIT 100
+#define OVERHEAD_DELTA 20
 
 typedef struct coarsedensity {
     SHORT density ;
@@ -36,6 +77,7 @@ typedef struct coarsedensity {
 
 static HCAPPTR **HcapacityS ;
 static HCAPPTR **entryptS ;
+static int	entrysizeS ;
 static SEGBOXPTR *swLsegptrS ;
 static INT LswitchsegS , svalueS , evalueS ;
 static INT *crowdmaxS , glb_crowdmaxS , *node_rightS ;
@@ -275,11 +317,10 @@ for( row = 1 ; row <= numRowsG ; row++ ) {
 }
 
 entryptS = (HCAPPTR **)Ysafe_malloc( ( numRowsG+1 ) * sizeof(HCAPPTR *) ) ;
+entrysizeS = glb_crowdmaxS + OVERHEAD_INIT;
 for( row = 1 ; row <= numRowsG ; row++ ) {
-    entryptS[row] = (HCAPPTR *)Ysafe_calloc( glb_crowdmaxS+1+OVER_HEAD,
-		sizeof( HCAPPTR )) ;
-    last_j = glb_crowdmaxS + OVER_HEAD ;
-    for( j = 0 ; j <= last_j ; j++ ) {
+    entryptS[row] = (HCAPPTR *)Ysafe_malloc( ( entrysizeS + 1 ) * sizeof( HCAPPTR )) ;
+    for( j = 0 ; j <= entrysizeS ; j++ ) {
 	entryptS[row][j] = (HCAPPTR)Ysafe_calloc( 1,sizeof(HCAPBOX)) ;
     }
 }
@@ -607,6 +648,23 @@ while( ++trys < maxtrys ) {
 		denptr->prev->next = denptr->next ;
 		density = ++denptr->density ;
 
+		// Need to check bounds and reallocate if density has
+		// exceeded OVERHEAD.  This should be quite rare.
+
+		if (density >= entrysizeS)
+		{
+		    INT row, j;
+
+		    for( row = 1 ; row <= numRowsG ; row++ ) {
+		        entryptS[row] = (HCAPPTR *)Ysafe_realloc( entryptS[row],
+				( entrysizeS + OVERHEAD_DELTA + 1 ) * sizeof( HCAPPTR )) ;
+			for( j = entrysizeS + 1; j <= entrysizeS + OVERHEAD_DELTA ; j++ ) {
+			    entryptS[row][j] = (HCAPPTR)Ysafe_calloc( 1,sizeof(HCAPBOX)) ;
+		        }
+		    }
+		    entrysizeS += OVERHEAD_DELTA;
+		} 
+
 		headptr = entryptS[nk][density] ;
 		if( headptr->next != NULL ) {
 		    denptr->next  = headptr->next ;
@@ -650,8 +708,7 @@ for( i = 1 ; i <= numRowsG ; i++ ) {
 Ysafe_free( HcapacityS ) ;
 Ysafe_free( crowdmaxS ) ;
 for( row = 1 ; row <= numRowsG ; row++ ) {
-    last_j = glb_crowdmaxS + OVER_HEAD ;
-    for( j = 0 ; j <= last_j ; j++ ) {
+    for( j = 0 ; j <= entrysizeS ; j++ ) {
 	Ysafe_free( entryptS[row][j] ) ;
     }
     Ysafe_free( entryptS[row] ) ;
@@ -742,14 +799,30 @@ HCAPPTR hcaptr , headptr ;
 
 for( row = 1 ; row <= numRowsG ; row++ ) {
     crowdmaxS[row] = 0 ;
-    last_j = glb_crowdmaxS + OVER_HEAD ;
-    for( j = 0 ; j <= last_j ; j++ ) {
+    for( j = 0 ; j <= entrysizeS ; j++ ) {
 	entryptS[row][j]->next = NULL ;
     }
 }
 for( row = 1 ; row <= numRowsG ; row++ ) {
     for( j = 1 ; j <= chan_node_noG ; j++ ) {
 	hcaptr = HcapacityS[row][j] ;
+
+	// Watch for density exceeding OVERHEAD and increase
+	// array sizes accordingly.
+
+	if (hcaptr->density > entrysizeS) {
+	    INT lrow, k;
+
+	    for( lrow = 1 ; lrow <= numRowsG ; lrow++ ) {
+	        entryptS[lrow] = (HCAPPTR *)Ysafe_realloc( entryptS[lrow],
+			( entrysizeS + OVERHEAD_DELTA + 1 ) * sizeof( HCAPPTR )) ;
+		for( k = entrysizeS + 1; k <= entrysizeS + OVERHEAD_DELTA ; k++ ) {
+		    entryptS[lrow][k] = (HCAPPTR)Ysafe_calloc( 1,sizeof(HCAPBOX)) ;
+	        }
+	    }
+	    entrysizeS += OVERHEAD_DELTA;
+	} 
+
 	headptr = entryptS[row][ hcaptr->density ] ;
 	if( headptr->next != NULL ) {
 	    hcaptr->next  = headptr->next ;
